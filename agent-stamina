@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""CLI for Agent Stamina."""
+
+import argparse
+import json
+import sys
+from datetime import datetime
+
+from stamina import StaminaMonitor
+
+
+def cmd_start(args):
+    """Start monitoring a session."""
+    monitor = StaminaMonitor(args.session_id, args.db)
+    print(f"✅ Started monitoring session: {args.session_id}")
+    print(f"   Database: {args.db}")
+    return monitor
+
+
+def cmd_record(args):
+    """Record a stamina snapshot."""
+    monitor = StaminaMonitor(args.session_id, args.db)
+    snapshot = monitor.record(
+        context_health=args.context_health,
+        memory_freshness=args.memory_freshness,
+        error_rate=args.error_rate,
+        repetition_score=args.repetition_score
+    )
+    
+    status_emoji = {"healthy": "🟢", "degraded": "🟡", "critical": "🔴"}
+    emoji = status_emoji.get(snapshot.status(), "⚪")
+    
+    print(f"{emoji} Recorded snapshot")
+    print(f"   Overall Score: {snapshot.overall_score:.1f}/100")
+    print(f"   Status: {snapshot.status().upper()}")
+    
+    if snapshot.should_checkpoint():
+        print("\n⚠️  RECOMMENDATION: Consider checkpointing soon")
+
+
+def cmd_status(args):
+    """Check current stamina status."""
+    monitor = StaminaMonitor(args.session_id, args.db)
+    snapshot = monitor.current_status()
+    
+    if not snapshot:
+        print("No data recorded for this session yet.")
+        return
+    
+    status_emoji = {"healthy": "🟢", "degraded": "🟡", "critical": "🔴"}
+    emoji = status_emoji.get(snapshot.status(), "⚪")
+    
+    print(f"\n{emoji} Session: {args.session_id}")
+    print(f"   Overall Score: {snapshot.overall_score:.1f}/100")
+    print(f"   Status: {snapshot.status().upper()}")
+    print("\n   Breakdown:")
+    print(f"   • Context Health:   {snapshot.context_health*100:.1f}%")
+    print(f"   • Memory Freshness: {snapshot.memory_freshness*100:.1f}%")
+    print(f"   • Error Rate:       {snapshot.error_rate*100:.1f}%")
+    print(f"   • Repetition:       {snapshot.repetition_score*100:.1f}%")
+    
+    print(f"\n📋 {monitor._get_recommendation(snapshot)}")
+
+
+def cmd_history(args):
+    """Show stamina history."""
+    monitor = StaminaMonitor(args.session_id, args.db)
+    history = monitor.get_history(minutes=args.minutes)
+    
+    if not history:
+        print(f"No data in last {args.minutes} minutes.")
+        return
+    
+    print(f"\n📊 Last {len(history)} snapshots:")
+    print(f"{'Time':<12} {'Score':<8} {'Status':<10}")
+    print("-" * 32)
+    
+    for snap in history[-10:]:  # Last 10
+        time_str = snap.timestamp.strftime("%H:%M:%S")
+        status_emoji = {"healthy": "🟢", "degraded": "🟡", "critical": "🔴"}
+        emoji = status_emoji.get(snap.status(), "⚪")
+        print(f"{time_str:<12} {snap.overall_score:>6.1f}   {emoji} {snap.status()}")
+
+
+def cmd_finish(args):
+    """Finish session and generate report."""
+    monitor = StaminaMonitor(args.session_id, args.db)
+    report = monitor.generate_report()
+    
+    if args.output:
+        with open(args.output, 'w') as f:
+            json.dump(report, f, indent=2)
+        print(f"✅ Report saved to: {args.output}")
+    else:
+        print("\n📈 Session Report:")
+        print(json.dumps(report, indent=2))
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Agent Stamina - Monitor endurance over long-horizon tasks"
+    )
+    parser.add_argument("--db", default=".agent_stamina.db", help="Database path")
+    parser.add_argument("--session-id", default="default", help="Session identifier")
+    
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+    
+    # start
+    start_parser = subparsers.add_parser("start", help="Start monitoring session")
+    start_parser.set_defaults(func=cmd_start)
+    
+    # record
+    record_parser = subparsers.add_parser("record", help="Record stamina snapshot")
+    record_parser.add_argument("--context-health", type=float, required=True, help="0.0-1.0")
+    record_parser.add_argument("--memory-freshness", type=float, required=True, help="0.0-1.0")
+    record_parser.add_argument("--error-rate", type=float, required=True, help="0.0-1.0")
+    record_parser.add_argument("--repetition-score", type=float, required=True, help="0.0-1.0")
+    record_parser.set_defaults(func=cmd_record)
+    
+    # status
+    status_parser = subparsers.add_parser("status", help="Check current status")
+    status_parser.set_defaults(func=cmd_status)
+    
+    # history
+    history_parser = subparsers.add_parser("history", help="Show history")
+    history_parser.add_argument("--minutes", type=int, default=60, help="History window")
+    history_parser.set_defaults(func=cmd_history)
+    
+    # finish
+    finish_parser = subparsers.add_parser("finish", help="Finish and generate report")
+    finish_parser.add_argument("--output", "-o", help="Output JSON file")
+    finish_parser.set_defaults(func=cmd_finish)
+    
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+    
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
