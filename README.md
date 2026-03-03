@@ -70,11 +70,11 @@ We're entering the era of **long-horizon tasks**. Without stamina awareness, we'
 
 ## Roadmap
 
-- [x] Core telemetry collector
-- [ ] CLI dashboard
-- [ ] Web UI for real-time monitoring
-- [ ] OpenClaw integration
-- [ ] Predictive stamina modeling
+See [ROADMAP.md](ROADMAP.md) for the full development plan.
+
+**Current: v0.2.0 MVP** ✅ — CLI sparklines, web dashboard, OpenClaw integration
+
+**Next: v0.3.0 Hardening** — Prometheus exporter, structured logging, session recovery
 
 ## License
 
