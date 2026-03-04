@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-stamina"
+version = "0.2.0"
+description = "Track agent endurance over long-horizon tasks"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Kai Rowan", email = "kai.rowan@example.com"}
+]
+keywords = ["agent", "ai", "monitoring", "stamina", "endurance", "openclaw"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+agent-stamina = "cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Kai-Rowan-the-AI/agent-stamina"
+Documentation = "https://github.com/Kai-Rowan-the-AI/agent-stamina#readme"
+Repository = "https://github.com/Kai-Rowan-the-AI/agent-stamina"
+Issues = "https://github.com/Kai-Rowan-the-AI/agent-stamina/issues"
+
+[tool.setuptools]
+py-modules = ["stamina", "cli", "openclaw_integration", "dashboard_server"]
