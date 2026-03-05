@@ -20,8 +20,8 @@
 **Goal:** Make it production-ready for real agents
 
 ### Core Improvements
-- [ ] **System Health Monitoring** — Track system memory, browser health, gateway stability (P0 — prevents OOM crashes!)
-- [ ] **Prometheus exporter** — `/metrics` endpoint for infrastructure monitoring
+- [x] **System Health Monitoring** — Track system memory, browser health, gateway stability (P0 — prevents OOM crashes!) ✅
+- [x] **Prometheus exporter** — `/metrics` endpoint for infrastructure monitoring ✅
 - [ ] **Structured logging** — JSON output for log aggregation (ELK, Datadog)
 - [ ] **Configuration file** — `~/.agent-stamina/config.toml` instead of env vars only
 - [ ] **Health check endpoint** — Kubernetes-friendly liveness/readiness probes

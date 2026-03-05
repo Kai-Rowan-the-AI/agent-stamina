@@ -118,6 +118,92 @@ Features:
 - Auto-refresh every 30 seconds
 - Export data as JSON
 
+## System Health Monitoring 🖥️
+
+Track infrastructure health to prevent environmental failures:
+
+```bash
+# Check current system health
+cd /root/.openclaw/workspace/agent-stamina && python3 cli.py system
+
+# Capture a new system health snapshot
+cd /root/.openclaw/workspace/agent-stamina && python3 cli.py system --capture
+
+# View combined stamina + system dashboard
+cd /root/.openclaw/workspace/agent-stamina && python3 cli.py system-dashboard
+```
+
+### Monitored Metrics
+
+| Metric | Threshold | Description |
+|--------|-----------|-------------|
+| RAM Usage | > 75% warning, > 90% critical | System memory pressure |
+| Disk Usage | > 85% warning, > 95% critical | Available storage |
+| Browser Memory | > 800MB warning, > 1500MB critical | Browser process accumulation |
+| Gateway Health | Any failure = critical | OpenClaw gateway responsiveness |
+
+### Python API
+
+```python
+from system_health import SystemHealthMonitor
+
+# Start monitoring
+monitor = SystemHealthMonitor("my-session")
+
+# Capture snapshot
+snapshot = monitor.capture()
+
+# Check for alerts
+if monitor.should_alert():
+    print("Critical system condition detected!")
+    for alert in monitor.get_alerts():
+        print(f"  - {alert}")
+
+# Get health score (0-100)
+score = monitor.health_score()
+```
+
+## Prometheus Integration 📊
+
+Export metrics to Prometheus for infrastructure monitoring:
+
+```bash
+# Start the Prometheus exporter
+python3 prometheus_exporter.py --port 9090
+
+# Or use in your code
+from prometheus_exporter import PrometheusExporter
+
+exporter = PrometheusExporter(port=9090)
+exporter.start()
+
+# Metrics available at http://localhost:9090/metrics
+```
+
+### Exported Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `agent_stamina_overall_score` | gauge | Overall stamina score (0-100) |
+| `agent_stamina_context_health` | gauge | Context health percentage |
+| `agent_stamina_memory_freshness` | gauge | Memory freshness percentage |
+| `agent_stamina_error_rate` | gauge | Error rate (0-1) |
+| `agent_stamina_system_ram_percent` | gauge | System RAM usage |
+| `agent_stamina_system_disk_percent` | gauge | System disk usage |
+| `agent_stamina_system_gateway_responsive` | gauge | Gateway up/down |
+| `agent_stamina_system_health_score` | gauge | Overall system health (0-100) |
+
+### Prometheus Configuration
+
+Add to your `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: 'agent-stamina'
+    static_configs:
+      - targets: ['localhost:9090']
+```
+
 ## CLI Dashboard Example
 
 ```bash

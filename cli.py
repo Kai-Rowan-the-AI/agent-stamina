@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional
 
 from stamina import StaminaMonitor, StaminaSnapshot
+from system_health import SystemHealthMonitor
 
 
 def sparkline(values: list[float], width: int = 20) -> str:
@@ -228,8 +229,143 @@ def cmd_finish(args):
         os.remove(active_file)
 
 
+def cmd_system_health(args):
+    """Show system health status."""
+    session_id, db_path = _get_active_session()
+    
+    monitor = SystemHealthMonitor(session_id, db_path=db_path)
+    
+    if args.capture:
+        snapshot = monitor.capture()
+        print(f"\n📸 Captured system health snapshot")
+    else:
+        snapshot = monitor.current_status()
+    
+    if not snapshot:
+        print("\n⚠️  No system health data recorded yet.")
+        print("   Run 'agent-stamina system --capture' to collect data.\n")
+        return
+    
+    # Status emoji
+    status_emoji = {
+        "healthy": "💚",
+        "warning": "💛", 
+        "critical": "🔴"
+    }.get(snapshot.status, "⚪")
+    
+    print(f"\n{status_emoji}  System Health: {snapshot.status.upper()}")
+    print(f"   Session: {session_id}")
+    print(f"   Timestamp: {snapshot.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+    print()
+    
+    # RAM bar
+    ram_color = "\033[92m" if snapshot.ram_percent < 60 else "\033[93m" if snapshot.ram_percent < 75 else "\033[91m"
+    ram_filled = int(snapshot.ram_percent / 100 * 20)
+    ram_bar = f"{ram_color}{'█' * ram_filled}{'░' * (20 - ram_filled)}\033[0m"
+    print(f"   💾 RAM:        {ram_bar} {snapshot.ram_percent:.1f}%")
+    print(f"               ({snapshot.ram_used_mb:.0f} / {snapshot.ram_total_mb:.0f} MB)")
+    
+    # Disk bar
+    disk_color = "\033[92m" if snapshot.disk_percent < 70 else "\033[93m" if snapshot.disk_percent < 85 else "\033[91m"
+    disk_filled = int(snapshot.disk_percent / 100 * 20)
+    disk_bar = f"{disk_color}{'█' * disk_filled}{'░' * (20 - disk_filled)}\033[0m"
+    print(f"   💿 Disk:       {disk_bar} {snapshot.disk_percent:.1f}%")
+    print(f"               ({snapshot.disk_free_gb:.1f} GB free)")
+    
+    # Browser
+    if snapshot.browser_memory_mb:
+        browser_color = "\033[92m" if snapshot.browser_memory_mb < 500 else "\033[93m" if snapshot.browser_memory_mb < 800 else "\033[91m"
+        print(f"   🌐 Browser:    {browser_color}{snapshot.browser_memory_mb:.0f} MB\033[0m ({snapshot.browser_processes} processes)")
+    else:
+        print(f"   🌐 Browser:    Not detected")
+    
+    # Gateway
+    if snapshot.gateway_responsive:
+        gw_emoji = "✅"
+        gw_status = f"Responsive ({snapshot.gateway_latency_ms:.1f}ms)"
+    else:
+        gw_emoji = "🔴"
+        gw_status = "Unresponsive"
+    print(f"   🦀 Gateway:    {gw_emoji} {gw_status}")
+    
+    # Health score
+    health_score = monitor.health_score()
+    print(f"\n   📊 Health Score: {health_bar(health_score)}")
+    
+    # Alerts
+    if snapshot.alerts:
+        print(f"\n   ⚠️  Alerts:")
+        for alert in snapshot.alerts:
+            alert_emoji = "🔴" if "CRITICAL" in alert else "💛"
+            print(f"      {alert_emoji} {alert}")
+    else:
+        print(f"\n   ✅ No alerts")
+    
+    print()
+
+
+def cmd_system_dashboard(args):
+    """Show combined stamina and system health dashboard."""
+    session_id, db_path = _get_active_session()
+    
+    stamina_monitor = StaminaMonitor(session_id, db_path=db_path)
+    system_monitor = SystemHealthMonitor(session_id, db_path=db_path)
+    
+    stamina_history = stamina_monitor.get_history(minutes=args.minutes)
+    system_history = system_monitor.get_history(minutes=args.minutes)
+    
+    # Clear screen
+    os.system('clear' if os.name != 'nt' else 'cls')
+    
+    print("╔" + "═" * 58 + "╗")
+    print("║" + " AGENT STAMINA + SYSTEM HEALTH ".center(58) + "║")
+    print("╠" + "═" * 58 + "╣")
+    
+    # Stamina section
+    if stamina_history:
+        current = stamina_history[-1]
+        status_emoji = {"healthy": "💚", "degraded": "💛", "critical": "🔴"}.get(current.status(), "⚪")
+        print(f"║  🏃 Stamina: {status_emoji} {current.status().upper():<12} Score: {current.overall_score:.1f}/100    ║")
+        
+        scores = [h.overall_score for h in stamina_history]
+        print(f"║     Overall: {sparkline(scores, 30)} {scores[-1]:5.1f}%       ║")
+    else:
+        print(f"║  🏃 Stamina: No data recorded                           ║")
+    
+    print("║" + " " * 58 + "║")
+    
+    # System health section
+    if system_history:
+        current = system_history[-1]
+        status_emoji = {"healthy": "💚", "warning": "💛", "critical": "🔴"}.get(current.status, "⚪")
+        print(f"║  🖥️  System:  {status_emoji} {current.status.upper():<12} Score: {system_monitor.health_score():.1f}/100    ║")
+        
+        ram_values = [h.ram_percent for h in system_history]
+        print(f"║     RAM:     {sparkline(ram_values, 30)} {ram_values[-1]:5.1f}%       ║")
+        
+        if current.browser_memory_mb:
+            print(f"║     Browser: {current.browser_memory_mb:.0f} MB ({current.browser_processes} procs)           ║")
+        
+        gw_status = "✅ UP" if current.gateway_responsive else "🔴 DOWN"
+        print(f"║     Gateway: {gw_status}                                    ║")
+    else:
+        print(f"║  🖥️  System:  No data recorded                           ║")
+    
+    print("╚" + "═" * 58 + "╝")
+    
+    # Alerts
+    if system_history and system_history[-1].alerts:
+        print("\n  ⚠️  System Alerts:")
+        for alert in system_history[-1].alerts[:3]:
+            print(f"     {alert}")
+    
+    if stamina_history:
+        rec = stamina_monitor._get_recommendation(stamina_history[-1])
+        print(f"\n  💡 {rec}")
+    print()
+
+
 def cmd_openclaw(args):
-    """Auto-detect and use OpenClaw environment."""
     # Check for OpenClaw environment variables
     env_vars = {
         'OPENCLAW_SESSION_KEY': os.environ.get('OPENCLAW_SESSION_KEY'),
@@ -303,6 +439,8 @@ Examples:
   agent-stamina record --context-health 0.8 --memory-freshness 0.9
   agent-stamina status
   agent-stamina dashboard
+  agent-stamina system --capture          # Capture system health snapshot
+  agent-stamina system-dashboard          # Combined stamina + system view
   agent-stamina finish --report report.json
         """
     )
@@ -341,6 +479,14 @@ Examples:
     # openclaw
     subparsers.add_parser("openclaw", help="Auto-detect OpenClaw environment")
     
+    # system health
+    system_parser = subparsers.add_parser("system", help="Show system health status")
+    system_parser.add_argument("--capture", action="store_true", help="Capture new snapshot")
+    
+    # system dashboard
+    system_dash_parser = subparsers.add_parser("system-dashboard", help="Show combined stamina + system dashboard")
+    system_dash_parser.add_argument("--minutes", type=int, default=60, help="History window in minutes")
+    
     args = parser.parse_args()
     
     if not args.command:
@@ -355,6 +501,8 @@ Examples:
         "history": cmd_history,
         "finish": cmd_finish,
         "openclaw": cmd_openclaw,
+        "system": cmd_system_health,
+        "system-dashboard": cmd_system_dashboard,
     }
     
     commands[args.command](args)
