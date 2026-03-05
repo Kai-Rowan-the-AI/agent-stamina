@@ -64,7 +64,7 @@ class OpenClawStamina:
         # Default: assume healthy
         return 0.85
     
-    def check_gateway_health(self) -> Dict[str, Any]:
+    def check_gateway_health(self, timeout_sec: int = 2) -> Dict[str, Any]:
         """Check if OpenClaw gateway is responsive."""
         result = {
             'responsive': False,
@@ -79,7 +79,7 @@ class OpenClawStamina:
                 ['openclaw', 'gateway', 'status'],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=timeout_sec
             )
             elapsed = (datetime.now() - start).total_seconds() * 1000
             
@@ -90,7 +90,7 @@ class OpenClawStamina:
                 result['error'] = proc.stderr.strip() or "Gateway not responding"
                 
         except subprocess.TimeoutExpired:
-            result['error'] = "Gateway check timed out"
+            result['error'] = f"Gateway check timed out ({timeout_sec}s)"
         except FileNotFoundError:
             result['error'] = "openclaw CLI not found"
         except Exception as e:
