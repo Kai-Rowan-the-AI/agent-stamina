@@ -23,8 +23,8 @@
 - [x] **System Health Monitoring** — Track system memory, browser health, gateway stability (P0 — prevents OOM crashes!) ✅
 - [x] **Prometheus exporter** — `/metrics` endpoint for infrastructure monitoring ✅
 - [ ] **Structured logging** — JSON output for log aggregation (ELK, Datadog)
-- [ ] **Configuration file** — `~/.agent-stamina/config.toml` instead of env vars only
-- [ ] **Health check endpoint** — Kubernetes-friendly liveness/readiness probes
+- [x] **Configuration file** — `~/.agent-stamina/config.toml` instead of env vars only ✅
+- [x] **Health check endpoint** — Kubernetes-friendly liveness/readiness probes ✅
 
 ### Stability
 - [ ] **Database migrations** — Schema versioning for SQLite
